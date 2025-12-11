@@ -9,6 +9,12 @@
     <link rel="stylesheet" href="css/style.css">
     <!-- Font Awesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- PWA Config -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#ff6b00">
+    <link rel="apple-touch-icon" href="assets/icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- Chart.js & jsPDF -->
@@ -249,7 +255,32 @@
         </div>
     </div>
 
+    <!-- Cookie Consent Banner -->
+    <div id="cookieBanner" class="cookie-banner hidden">
+        <div class="cookie-content">
+            <p>
+                Utilizamos <strong>almacenamiento local</strong> para guardar tus estadísticas y preferencias.
+                Si continúas navegando, aceptas nuestra <a href="privacy.html">Política de Privacidad</a>.
+            </p>
+            <div class="cookie-actions">
+                <button id="btnAcceptCookies" class="btn-primary">Aceptar</button>
+                <a href="privacy.html" class="btn-secondary"
+                    style="font-size: 0.9rem; padding: 8px 12px; text-decoration:none;">Más info</a>
+            </div>
+        </div>
+    </div>
+
     <script src="js/app.js"></script>
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => console.log('SW Registered!', reg))
+                    .catch(err => console.log('SW Failed:', err));
+            });
+        }
+    </script>
 </body>
 
 </html>

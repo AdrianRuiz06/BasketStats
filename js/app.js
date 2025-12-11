@@ -254,6 +254,19 @@ const UI = {
 
         // Timer
         document.getElementById('timerBtn').addEventListener('click', () => Timer.toggle());
+
+        // Cookie Consent Logic
+        const cookieBanner = document.getElementById('cookieBanner');
+        const btnAcceptCookies = document.getElementById('btnAcceptCookies');
+
+        if (!localStorage.getItem('cookieConsent')) {
+            cookieBanner.classList.remove('hidden');
+        }
+
+        btnAcceptCookies.addEventListener('click', () => {
+            localStorage.setItem('cookieConsent', 'accepted');
+            cookieBanner.classList.add('hidden');
+        });
     },
 
     switchView(viewName) {
