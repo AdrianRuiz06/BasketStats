@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BlueCore HoopStats</title>
+    <link rel="icon" type="image/png" href="assets/logo.png">
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js & jsPDF -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+</head>
+
+<body>
+
+    <div class="app-container">
+
+        <!-- SEO CONTENT (Moved to top) -->
+        <div class="seo-content-section">
+            <h2>Estadísticas de Baloncesto Profesionales y Gratuitas</h2>
+            <p>BlueCore HoopStats es la herramienta definitiva para entrenadores, jugadores y aficionados que desean
+                llevar un registro detallado de las estadísticas de baloncesto en tiempo real. Completamente gratuita y
+                online.</p>
+            <h3>Características Principales</h3>
+            <ul>
+                <li><strong>Registro en Vivo:</strong> Anota puntos, rebotes, asistencias y más con un solo toque.</li>
+                <li><strong>Multiequipo:</strong> Gestiona plantillas locales y visitantes.</li>
+                <li><strong>Informes PDF:</strong> Descarga actas de partido profesionales al finalizar el juego.</li>
+                <li><strong>Estadísticas Avanzadas:</strong> Cálculo automático de eficiencia, porcentajes y +/-.</li>
+            </ul>
+        </div>
+
+        <!-- HEADER / SCOREBOARD -->
+        <header class="scoreboard">
+            <div class="team team-home">
+                <input type="text" id="homeName" value="LOCAL" class="team-name-input">
+                <div class="score-controls">
+                    <button class="btn-score-adj" onclick="adjustScore('home', -1)">-</button>
+                    <span id="homeScore" class="score-display">0</span>
+                    <button class="btn-score-adj" onclick="adjustScore('home', 1)">+</button>
+                </div>
+                <div class="fouls-display">Faltas: <span id="homeFouls">0</span></div>
+            </div>
+
+            <div class="game-info">
+                <div class="timer-container">
+                    <span id="gameTimer">10:00</span>
+                    <button id="timerBtn" class="btn-timer"><i class="fas fa-play"></i></button>
+                </div>
+                <div class="quarter-selector">
+                    <span id="currentQuarter">Q1</span>
+                </div>
+            </div>
+
+            <div class="team team-visitor">
+                <input type="text" id="visitorName" value="VISITANTE" class="team-name-input">
+                <div class="score-controls">
+                    <button class="btn-score-adj" onclick="adjustScore('visitor', -1)">-</button>
+                    <span id="visitorScore" class="score-display">0</span>
+                    <button class="btn-score-adj" onclick="adjustScore('visitor', 1)">+</button>
+                </div>
+                <div class="fouls-display">Faltas: <span id="visitorFouls">0</span></div>
+            </div>
+        </header>
+
+        <!-- MAIN CONTENT AREA -->
+        <main id="mainView" class="view-active">
+            <!-- TABS -->
+            <nav class="view-tabs">
+                <button class="tab-btn active" data-view="game">Partido</button>
+                <button class="tab-btn" data-view="roster">Jugadores</button>
+                <button class="tab-btn" data-view="stats">Estadísticas</button>
+                <button class="tab-btn" data-view="export">Exportar</button>
+            </nav>
+
+            <!-- VIEW: GAME (Action Pad) -->
+            <section id="view-game" class="view-section active">
+                <div class="active-players-container">
+                    <div class="section-header-row">
+                        <h3>Jugadores en Pista</h3>
+                        <div class="team-toggle">
+                            <button id="btnToggleHome" class="btn-toggle-team active"
+                                onclick="setActiveTeam('home')">LOCAL</button>
+                            <button id="btnToggleVisitor" class="btn-toggle-team"
+                                onclick="setActiveTeam('visitor')">VISITANTE</button>
+                        </div>
+                    </div>
+                    <div id="activePlayersList" class="player-grid">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <div id="actionPad" class="action-pad disabled">
+                    <div class="pad-header">
+                        Acción para: <span id="selectedPlayerName">--</span>
+                    </div>
+                    <div class="pad-grid">
+                        <!-- SCORING -->
+                        <button class="btn-action score" data-action="fg2m">+2 Pts</button>
+                        <button class="btn-action miss" data-action="fg2a">Fallado 2</button>
+                        <button class="btn-action score" data-action="fg3m">+3 Pts</button>
+                        <button class="btn-action miss" data-action="fg3a">Fallado 3</button>
+
+                        <button class="btn-action score" data-action="ftm">+1 TL</button>
+                        <button class="btn-action miss" data-action="fta">Fallado TL</button>
+
+                        <!-- REBOUNDS -->
+                        <button class="btn-action stat" data-action="orb">Reb Of</button>
+                        <button class="btn-action stat" data-action="drb">Reb Def</button>
+
+                        <!-- PLAYMAKING/DEFENSE -->
+                        <button class="btn-action stat" data-action="ast">Asist</button>
+                        <button class="btn-action stat" data-action="stl">Robo</button>
+
+                        <button class="btn-action stat" data-action="blk">Tapón</button>
+                        <button class="btn-action neg" data-action="tov">Pérdida</button>
+
+                        <!-- FOULS -->
+                        <button class="btn-action neg" data-action="pf">Falta P.</button>
+                        <button class="btn-action stat" data-action="ofd">Falta Recib.</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: ROSTER -->
+            <section id="view-roster" class="view-section">
+                <div class="roster-controls">
+                    <button class="btn-primary" onclick="showAddPlayerModal()">+ Añadir Jugador</button>
+                </div>
+                <div class="roster-lists">
+                    <div class="team-roster">
+                        <h4 class="team-roster-title">LOCAL</h4>
+                        <ul id="rosterListHome" class="roster-list"></ul>
+                    </div>
+                    <div class="team-roster" style="margin-top: 20px;">
+                        <h4 class="team-roster-title">VISITANTE</h4>
+                        <ul id="rosterListVisitor" class="roster-list"></ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: STATS -->
+            <section id="view-stats" class="view-section">
+                <div class="stats-filter">
+                    <button class="btn-small active" onclick="renderStatsTable('home')">Local</button>
+                    <button class="btn-small" onclick="renderStatsTable('visitor')">Visitante</button>
+                </div>
+                <div class="stats-table-container">
+                    <table id="liveStatsTable">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th class="col-name">Nombre</th>
+                                <th>PTS</th>
+                                <th>2P</th>
+                                <th>3P</th>
+                                <th>TL</th>
+                                <th>REB</th>
+                                <th>AST</th>
+                                <th>ROB</th>
+                                <th>TAP</th>
+                                <th>PER</th>
+                                <th>FAL</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Shot Chart Visualization -->
+                <div class="shot-chart-section">
+                    <h4>Mapa de Tiros</h4>
+                    <div class="shot-chart-container">
+                        <canvas id="shotChartCanvas"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: EXPORT -->
+            <section id="view-export" class="view-section">
+                <div class="export-options">
+                    <button class="btn-large" onclick="generatePDF()">
+                        <i class="fas fa-file-pdf"></i> Generar Informe PDF
+                    </button>
+                    <button class="btn-secondary" onclick="resetGame()">
+                        <i class="fas fa-trash"></i> Nuevo Partido (Borrar todo)
+                    </button>
+                </div>
+                <div class="charts-preview">
+                    <canvas id="pointsChart"></canvas>
+                </div>
+            </section>
+
+        </main>
+
+        <footer class="app-footer">
+            <p>&copy; 2025 BlueCore HoopStats. Todos los derechos reservados.</p>
+            <div class="footer-links">
+                <a href="privacy.html" target="_blank">Política de Privacidad</a> |
+                <a href="terms.html" target="_blank">Términos de Servicio</a>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Modals -->
+    <div id="addPlayerModal" class="modal hidden">
+        <div class="modal-content">
+            <h3>Nuevo Jugador</h3>
+            <div class="team-selector-modal">
+                <label><input type="radio" name="newPlayerTeam" value="home" checked> Local</label>
+                <label><input type="radio" name="newPlayerTeam" value="visitor"> Visitante</label>
+            </div>
+            <input type="number" id="newPlayerNum" placeholder="#">
+            <input type="text" id="newPlayerName" placeholder="Nombre">
+            <div class="modal-buttons">
+                <button onclick="closeModal('addPlayerModal')">Cancelar</button>
+                <button onclick="addPlayer()" class="btn-primary">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shot Selection Modal -->
+    <div id="shotModal" class="modal hidden">
+        <div class="modal-content modal-large">
+            <h3>Selecciona la posición</h3>
+            <p id="shotActionText" style="margin-bottom: 10px; font-weight: bold; color: #ff6b00;">--</p>
+            <div class="court-container">
+                <!-- Half court SVG or Background -->
+                <div id="courtClickArea" class="court-click-area">
+                    <!-- Lines drawn via CSS or SVG -->
+                    <div class="hoop"></div>
+                    <div class="paint"></div>
+                    <div class="free-throw-line"></div>
+                    <div class="three-point-line"></div>
+                    <div class="center-circle"></div>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button onclick="closeModal('shotModal')">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+
+</html>

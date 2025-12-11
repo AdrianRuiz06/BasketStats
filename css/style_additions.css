@@ -1,0 +1,102 @@
+/* --- PHASE 2 STYLES --- */
+
+.section-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.team-toggle {
+    display: flex;
+    background: #e0e0e0;
+    border-radius: 6px;
+    padding: 2px;
+}
+
+.btn-toggle-team {
+    border: none;
+    background: transparent;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #666;
+}
+
+.btn-toggle-team.active {
+    background: #fff;
+    color: var(--primary-color);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.team-roster-title {
+    background: #f0f0f0;
+    padding: 5px 10px;
+    font-size: 0.9rem;
+    color: #555;
+    border-radius: 4px;
+    margin-bottom: 5px;
+}
+
+.stats-filter {
+    margin-bottom: 10px;
+    display: flex;
+    gap: 10px;
+}
+
+.btn-small {
+    padding: 5px 15px;
+    border: 1px solid var(--border-color);
+    background: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-small.active {
+    background: var(--primary-color);
+    color: #fff;
+    border-color: var(--primary-color);
+}
+
+/* Detailed Stats Table */
+th.col-name {
+    min-width: 100px;
+    position: sticky;
+    left: 0;
+    background: #eee;
+    z-index: 10;
+    border-right: 1px solid #ddd;
+}
+
+#liveStatsTable td:nth-child(2) {
+    position: sticky;
+    left: 0;
+    background: #fff;
+    z-index: 10;
+    border-right: 1px solid #ddd;
+    font-weight: 500;
+}
+
+#liveStatsTable td {
+    white-space: nowrap;
+    font-size: 0.9rem;
+}
+
+.team-selector-modal {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 15px;
+    font-weight: 500;
+}
+/* Correction for SEO moved to top */
+.seo-content-section {
+    border-top: none;
+    border-bottom: 5px solid var(--primary-color);
+    margin-top: 0;
+    margin-bottom: 15px;
+    padding-bottom: 20px;
+    background: #fff;
+}
+
