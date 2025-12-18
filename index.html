@@ -102,6 +102,16 @@
                     </div>
                 </div>
 
+                <!-- COACHES -->
+                <div class="active-players-container" style="margin-top: 5px;">
+                    <div class="section-header-row">
+                        <h3 style="font-size:0.9rem; opacity:0.8;">Entrenadores</h3>
+                    </div>
+                    <div id="activeCoachesList" class="player-grid">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
                 <div id="actionPad" class="action-pad disabled">
                     <div class="pad-header">
                         Acción para: <span id="selectedPlayerName">--</span>
@@ -130,6 +140,7 @@
                         <!-- FOULS -->
                         <button class="btn-action neg" data-action="pf">Falta P.</button>
                         <button class="btn-action stat" data-action="ofd">Falta Recib.</button>
+                        <button class="btn-action neg" data-action="tf" style="background: #6f42c1;">Técnica</button>
                     </div>
                 </div>
             </section>
@@ -143,10 +154,14 @@
                     <div class="team-roster">
                         <h4 class="team-roster-title">LOCAL</h4>
                         <ul id="rosterListHome" class="roster-list"></ul>
+                        <h5 class="team-roster-subtitle">Entrenadores</h5>
+                        <ul id="activeCoachesHome" class="roster-list"></ul>
                     </div>
                     <div class="team-roster" style="margin-top: 20px;">
                         <h4 class="team-roster-title">VISITANTE</h4>
                         <ul id="rosterListVisitor" class="roster-list"></ul>
+                        <h5 class="team-roster-subtitle">Entrenadores</h5>
+                        <ul id="activeCoachesVisitor" class="roster-list"></ul>
                     </div>
                 </div>
             </section>
@@ -173,6 +188,7 @@
                                 <th>TAP</th>
                                 <th>PER</th>
                                 <th>FAL</th>
+                                <th>TEC</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -223,6 +239,10 @@
             <div class="team-selector-modal">
                 <label><input type="radio" name="newPlayerTeam" value="home" checked> Local</label>
                 <label><input type="radio" name="newPlayerTeam" value="visitor"> Visitante</label>
+            </div>
+            <div class="role-selector-modal" style="margin: 10px 0;">
+                <label><input type="radio" name="newMemberRole" value="player" checked> Jugador</label>
+                <label><input type="radio" name="newMemberRole" value="coach"> Entrenador</label>
             </div>
             <input type="number" id="newPlayerNum" placeholder="#">
             <input type="text" id="newPlayerName" placeholder="Nombre">

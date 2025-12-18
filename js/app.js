@@ -11,6 +11,7 @@
 
 // --- STATE MANAGEMENT ---
 const Store = {
+
     data: {
         gameId: null,
         date: null,
@@ -19,6 +20,7 @@ const Store = {
             visitor: { id: 'visitor', name: 'VISITANTE', score: 0, fouls: 0, color: '#000000' }
         },
         players: [],
+        coaches: [], // [NEW] Coaches list
         log: [],
         quarter: 1,
         gameActive: false
@@ -29,6 +31,8 @@ const Store = {
         if (saved) {
             try {
                 this.data = JSON.parse(saved);
+                // Schema migration: ensure coaches exists
+                if (!this.data.coaches) this.data.coaches = [];
                 console.log('State v2 restored');
             } catch (e) {
                 console.error('State restore failed', e);
@@ -51,6 +55,7 @@ const Store = {
                 visitor: { id: 'visitor', name: 'VISITANTE', score: 0, fouls: 0 }
             },
             players: [],
+            coaches: [],
             log: [],
             quarter: 1,
             gameActive: false
@@ -71,6 +76,17 @@ const Store = {
         this.save();
     },
 
+    addCoach(name, teamId) {
+        const id = 'c_' + Date.now().toString(36);
+        this.data.coaches.push({
+            id,
+            name,
+            team: teamId,
+            stats: { tf: 0 } // Technical fouls for coach
+        });
+        this.save();
+    },
+
     createEmptyStats() {
         return {
             pts: 0,
@@ -80,6 +96,7 @@ const Store = {
             orb: 0, drb: 0,
             ast: 0, stl: 0, blk: 0, tov: 0,
             pf: 0, ofd: 0,
+            tf: 0, // Technical Foul
             time: 0
         };
     },
@@ -92,15 +109,25 @@ const Store = {
         }
     },
 
-    recordAction(playerId, actionType, extraData = {}) {
-        const p = this.data.players.find(pl => pl.id === playerId);
-        if (!p) return;
+    recordAction(subjectId, actionType, extraData = {}) {
+        // Try to find player first
+        let subject = this.data.players.find(pl => pl.id === subjectId);
+        let role = 'player';
+
+        if (!subject) {
+            // Try coach
+            subject = this.data.coaches.find(c => c.id === subjectId);
+            role = 'coach';
+        }
+
+        if (!subject) return;
 
         // Add to Log
         const logEntry = {
             id: Date.now(),
-            playerId,
-            team: p.team,
+            subjectId,
+            role,
+            team: subject.team,
             action: actionType,
             quarter: this.data.quarter,
             gameTime: Timer.getTimeStr(),
@@ -109,14 +136,28 @@ const Store = {
         this.data.log.push(logEntry);
 
         // Update Stats
-        this.updateStats(p, actionType);
+        this.updateStats(subject, actionType, role);
         this.save();
     },
 
-    updateStats(player, action) {
-        const s = player.stats;
-        const teamKey = player.team; // 'home' or 'visitor'
+    updateStats(subject, action, role) {
+        const s = subject.stats;
+        const teamKey = subject.team; // 'home' or 'visitor'
 
+        // Handle Coach Stats
+        if (role === 'coach') {
+            if (action === 'tf') {
+                s.tf++;
+                // Usually coach TF counts towards team fouls in many leagues? 
+                // Let's NOT auto-increment team fouls for coach to keep it flexible, 
+                // or maybe we should? User asked only to "put technical fouls".
+                // I will NOT add to team fouls explicitly unless requested, 
+                // as rules vary (bench vs direct).
+            }
+            return;
+        }
+
+        // Handle Player Stats
         switch (action) {
             case 'fg2m': s.fg2m++; s.fg2a++; s.pts += 2; this.data.teams[teamKey].score += 2; break;
             case 'fg2a': s.fg2a++; break; // Missed
@@ -133,6 +174,7 @@ const Store = {
             case 'tov': s.tov++; break;
             case 'pf': s.pf++; this.data.teams[teamKey].fouls++; break;
             case 'ofd': s.ofd++; break;
+            case 'tf': s.tf++; break; // Player Technical
         }
     }
 };
@@ -301,6 +343,7 @@ const UI = {
         document.getElementById('selectedPlayerName').textContent = '--';
 
         this.renderActivePlayers();
+        this.renderActiveCoaches(); // Render coaches for active team
     },
 
     renderActivePlayers() {
@@ -310,38 +353,104 @@ const UI = {
         container.innerHTML = '';
         if (active.length === 0) {
             container.innerHTML = `<div class="empty-state" style="padding:10px; color:#777;">No hay jugadores de ${this.activeTeamForPad === 'home' ? 'LOCAL' : 'VISITANTE'} en pista.</div>`;
+        } else {
+            active.forEach(p => {
+                const card = document.createElement('div');
+                card.className = `player-card ${this.selectedPlayerId === p.id ? 'selected' : ''}`;
+                card.dataset.id = p.id;
+                card.innerHTML = `
+                    <span class="p-num">#${p.number}</span>
+                    <span class="p-name">${p.name}</span>
+                `;
+                card.onclick = () => this.selectSubject(p.id, 'player');
+                container.appendChild(card);
+            });
+        }
+    },
+
+    renderActiveCoaches() {
+        // Coaches are always "active" (on bench/court)
+        const container = document.getElementById('activeCoachesList');
+        const coaches = Store.data.coaches.filter(c => c.team === this.activeTeamForPad);
+
+        container.innerHTML = '';
+        if (coaches.length === 0) {
+            container.innerHTML = `<div class="empty-state" style="padding:10px; color:#777; font-size: 0.8rem;">Sin entrenadores</div>`;
             return;
         }
 
-        active.forEach(p => {
+        coaches.forEach(c => {
             const card = document.createElement('div');
-            card.className = `player-card ${this.selectedPlayerId === p.id ? 'selected' : ''}`;
-            card.dataset.id = p.id;
+            card.className = `player-card ${this.selectedPlayerId === c.id ? 'selected' : ''}`; // Reusing player-card class
+            card.style.backgroundColor = '#f0f0f0'; // Distinguish coaches slightly
+            card.dataset.id = c.id;
             card.innerHTML = `
-                <span class="p-num">#${p.number}</span>
-                <span class="p-name">${p.name}</span>
+                <span class="p-num"><i class="fas fa-user-tie"></i></span>
+                <span class="p-name">${c.name}</span>
             `;
-            card.onclick = () => this.selectPlayer(p.id);
+            card.onclick = () => this.selectSubject(c.id, 'coach');
             container.appendChild(card);
         });
     },
 
-    selectPlayer(id) {
+    selectSubject(id, type) {
         this.selectedPlayerId = id;
         this.renderActivePlayers(); // Re-render to highlight
-        const p = Store.data.players.find(pl => pl.id === id);
-        if (p) {
-            document.getElementById('selectedPlayerName').textContent = `#${p.number} ${p.name}`;
-            document.getElementById('actionPad').classList.remove('disabled');
+        this.renderActiveCoaches();
+
+        let subject;
+        if (type === 'coach') {
+            subject = Store.data.coaches.find(c => c.id === id);
+        } else {
+            subject = Store.data.players.find(p => p.id === id);
         }
+
+        if (subject) {
+            const label = type === 'coach' ? subject.name : `#${subject.number} ${subject.name}`;
+            document.getElementById('selectedPlayerName').textContent = label;
+            document.getElementById('actionPad').classList.remove('disabled');
+
+            // Manage button states
+            const btns = document.querySelectorAll('.btn-action');
+            if (type === 'coach') {
+                btns.forEach(b => {
+                    if (b.dataset.action === 'tf') {
+                        b.classList.remove('disabled-btn');
+                        b.style.opacity = '1';
+                        b.style.pointerEvents = 'auto';
+                    } else {
+                        b.classList.add('disabled-btn');
+                        b.style.opacity = '0.3';
+                        b.style.pointerEvents = 'none';
+                    }
+                });
+            } else {
+                btns.forEach(b => {
+                    b.classList.remove('disabled-btn');
+                    b.style.opacity = '1';
+                    b.style.pointerEvents = 'auto';
+                });
+            }
+        }
+    },
+
+    selectPlayer(id) {
+        // Legacy wrapper just in case
+        this.selectSubject(id, 'player');
     },
 
     renderRosterList() {
         const homeList = document.getElementById('rosterListHome');
         const visitorList = document.getElementById('rosterListVisitor');
+        const homeCoachesList = document.getElementById('activeCoachesHome');
+        const visitorCoachesList = document.getElementById('activeCoachesVisitor');
+
         homeList.innerHTML = '';
         visitorList.innerHTML = '';
+        if (homeCoachesList) homeCoachesList.innerHTML = '';
+        if (visitorCoachesList) visitorCoachesList.innerHTML = '';
 
+        // Players
         Store.data.players.forEach(p => {
             const li = document.createElement('li');
             li.className = `roster-item ${p.active ? 'on-court' : ''}`;
@@ -353,6 +462,16 @@ const UI = {
             `;
             if (p.team === 'home') homeList.appendChild(li);
             else visitorList.appendChild(li);
+        });
+
+        // Coaches
+        Store.data.coaches.forEach(c => {
+            const li = document.createElement('li');
+            li.className = 'roster-item';
+            li.style.background = '#f9f9f9';
+            li.innerHTML = `<span><i class="fas fa-user-tie"></i> ${c.name}</span>`;
+            if (c.team === 'home' && homeCoachesList) homeCoachesList.appendChild(li);
+            else if (visitorCoachesList) visitorCoachesList.appendChild(li);
         });
 
         // Update header names
@@ -377,6 +496,7 @@ const UI = {
         tbody.innerHTML = '';
 
         const players = Store.data.players.filter(p => p.team === this.activeTeamForStats);
+        const coaches = Store.data.coaches.filter(c => c.team === this.activeTeamForStats);
 
         players.forEach(p => {
             const s = p.stats;
@@ -394,9 +514,39 @@ const UI = {
                 <td>${s.blk}</td>
                 <td>${s.tov}</td>
                 <td>${s.pf}</td>
+                <td>${s.tf || 0}</td>
             `;
             tbody.appendChild(tr);
         });
+
+        // Append Coaches if they have stats (or always)
+        if (coaches.length > 0) {
+            const sepRow = document.createElement('tr');
+            sepRow.innerHTML = `<td colspan="13" style="background:#eee; font-weight:bold; font-size:0.8rem; text-align:center;">ENTRENADORES</td>`;
+            tbody.appendChild(sepRow);
+
+            coaches.forEach(c => {
+                const s = c.stats;
+                const tr = document.createElement('tr');
+                tr.style.background = '#fffaf0';
+                tr.innerHTML = `
+                    <td>-</td>
+                    <td style="text-align:left;">${c.name}</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td><strong>${s.tf || 0}</strong></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
 
         // Update Chart too
         this.renderShotChart();
@@ -419,6 +569,10 @@ const UI = {
 
     openShotModal(action) {
         if (!this.selectedPlayerId) return;
+
+        // Don't open for coaches (safety check, though button should be disabled)
+        if (Store.data.coaches.find(c => c.id === this.selectedPlayerId)) return;
+
         this.pendingShotAction = action;
 
         const actionNames = {
@@ -621,20 +775,46 @@ window.addPlayer = () => {
     const num = document.getElementById('newPlayerNum').value;
     const name = document.getElementById('newPlayerName').value;
     const teamRadios = document.getElementsByName('newPlayerTeam');
+    const roleRadios = document.getElementsByName('newMemberRole');
+
     let teamId = 'home';
     for (const r of teamRadios) {
         if (r.checked) teamId = r.value;
     }
 
-    if (num && name) {
-        Store.addPlayer(num, name, teamId);
+    let role = 'player';
+    if (roleRadios.length > 0) { // Check if new elements exist
+        for (const r of roleRadios) {
+            if (r.checked) role = r.value;
+        }
+    }
+
+    if (name) {
+        if (role === 'coach') {
+            Store.addCoach(name, teamId);
+        } else {
+            if (num) {
+                Store.addPlayer(num, name, teamId);
+            } else {
+                alert("El número es obligatorio para un jugador.");
+                return;
+            }
+        }
+
         UI.renderRosterList();
         UI.renderStatsTable();
+        // UI.renderActiveCoaches() might be needed if looking at game view
+        if (UI.activeTeamForPad === teamId) UI.renderActiveCoaches();
+
         closeModal('addPlayerModal');
         document.getElementById('newPlayerNum').value = '';
         document.getElementById('newPlayerName').value = '';
-        // Reset radio button selection to default (home)
-        document.getElementById('newPlayerTeamHome').checked = true;
+
+        // Reset role to player
+        const rolePlayer = document.querySelector('input[name="newMemberRole"][value="player"]');
+        if (rolePlayer) rolePlayer.checked = true;
+    } else {
+        alert("El nombre es obligatorio.");
     }
 };
 
@@ -713,7 +893,8 @@ window.generatePDF = () => {
         doc.text(teamName, 14, currentY);
         currentY += 5;
 
-        const headers = [["#", "JUGADOR", "PTS", "2P", "3P", "TL", "REB", "AS", "RO", "TP", "PE", "FA"]];
+        // Players Table
+        const headers = [["#", "JUGADOR", "PTS", "2P", "3P", "TL", "REB", "AS", "RO", "TP", "PE", "FA", "TEC"]];
         const teamPlayers = d.players.filter(p => p.team === teamId);
 
         const data = teamPlayers.map(p => {
@@ -730,7 +911,8 @@ window.generatePDF = () => {
                 s.stl,
                 s.blk,
                 s.tov,
-                s.pf
+                s.pf,
+                s.tf || 0
             ];
         });
 
@@ -743,7 +925,32 @@ window.generatePDF = () => {
             styles: { fontSize: 8, cellPadding: 2 }
         });
 
-        currentY = doc.lastAutoTable.finalY + 10;
+        currentY = doc.lastAutoTable.finalY + 5;
+
+        // Coaches Table (Small)
+        const teamCoaches = d.coaches.filter(c => c.team === teamId);
+        if (teamCoaches.length > 0) {
+            const coachHeaders = [["ENTRENADOR", "TÉCNICAS"]];
+            const coachData = teamCoaches.map(c => [c.name, c.stats.tf || 0]);
+
+            doc.setFontSize(10);
+            doc.setTextColor(0, 0, 0);
+            doc.text("Cuerpo Técnico", 14, currentY + 4);
+
+            doc.autoTable({
+                head: coachHeaders,
+                body: coachData,
+                startY: currentY + 5,
+                theme: 'plain',
+                headStyles: { fillColor: [200, 200, 200], textColor: 50 },
+                styles: { fontSize: 8, cellPadding: 2 },
+                columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 20 } }
+            });
+
+            currentY = doc.lastAutoTable.finalY + 10;
+        } else {
+            currentY += 5;
+        }
     };
 
     // HOME TEAM
